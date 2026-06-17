@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Options Mispricing & Volatility Surface Engine | alwaysprince05</title>
+  <meta name="description" content="Interactive options mispricing detection, Greeks calculation, and 3D volatility surface visualization using the Black-Scholes model." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #060811;
+      --bg2:       #0d1120;
+      --surface:   rgba(255,255,255,0.04);
+      --border:    rgba(255,255,255,0.08);
+      --accent:    #7c3aed;
+      --accent2:   #06b6d4;
+      --accent3:   #f59e0b;
+      --green:     #10b981;
+      --red:       #ef4444;
+      --text:      #f1f5f9;
+      --muted:     #64748b;
+      --card-glow: rgba(124,58,237,0.15);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── ANIMATED BG ── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 10%, rgba(124,58,237,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 80%, rgba(6,182,212,0.12) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 50% 50%, rgba(245,158,11,0.05) 0%, transparent 60%),
+        #060811;
+    }
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .page-wrap { position: relative; z-index: 1; }
+
+    /* ── HEADER ── */
+    header {
+      padding: 28px 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(6,8,17,0.6);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
+    .header-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 500; color: #a78bfa;
+    }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; animation: pulse-dot 2s infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+    /* ── HERO ── */
+    .hero {
+      text-align: center;
+      padding: 80px 48px 60px;
+    }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25);
+      padding: 5px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 500; color: var(--accent2);
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 58px);
+      font-weight: 900; letter-spacing: -2px; line-height: 1.1;
+      background: linear-gradient(135deg, #fff 0%, #a78bfa 50%, #06b6d4 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+    .hero p {
+      font-size: 16px; color: var(--muted); max-width: 560px; margin: 0 auto 32px;
+      line-height: 1.7;
+    }
+    .hero-btns { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; transition: all .2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #9f67ff);
+      color: #fff; box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,58,237,0.5); }
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { background: var(--surface); border-color: rgba(255,255,255,0.15); }
+
+    /* ── MAIN LAYOUT ── */
+    main { padding: 0 48px 80px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── SECTION HEADER ── */
+    .section-hdr {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 24px; margin-top: 52px;
+    }
+    .section-hdr .icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .section-hdr h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+    .section-hdr p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      padding: 24px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .card:hover { border-color: rgba(124,58,237,0.3); box-shadow: 0 0 40px var(--card-glow); }
+
+    /* ── INPUT PANEL ── */
+    .input-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    }
+    @media (max-width: 768px) { .input-grid { grid-template-columns: 1fr; } }
+    .field label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+    .field input, .field select {
+      width: 100%; padding: 11px 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text);
+      font-family: 'Inter', sans-serif; font-size: 14px;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+    }
+    .field input:focus, .field select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+    }
+    .field input::file-selector-button {
+      background: rgba(124,58,237,0.2); border: 1px solid rgba(124,58,237,0.3);
+      color: #a78bfa; border-radius: 6px; padding: 4px 10px;
+      font-size: 12px; cursor: pointer; margin-right: 10px;
+    }
+    .input-actions {
+      display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;
+    }
+    .separator { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 12px; }
+    .separator::before, .separator::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── METRIC CARDS ── */
+    .metrics-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 22px;
+      position: relative; overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .metric-card:hover { transform: translateY(-3px); }
+    .metric-card .glow {
+      position: absolute; top: -30px; right: -30px;
+      width: 80px; height: 80px; border-radius: 50%; opacity: 0.5; filter: blur(20px);
+    }
+    .metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 10px; }
+    .metric-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; font-family: 'JetBrains Mono', monospace; }
+    .metric-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .metric-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-top: 8px;
+    }
+    .badge-up { background: rgba(16,185,129,0.15); color: var(--green); }
+    .badge-down { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge-warn { background: rgba(245,158,11,0.15); color: var(--accent3); }
+
+    /* ── CHARTS ── */
+    .charts-row { display: grid; gap: 20px; }
+    .charts-2col { grid-template-columns: 1fr 1fr; }
+    .charts-3col { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 900px) {
+      .charts-2col, .charts-3col { grid-template-columns: 1fr; }
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+      backdrop-filter: blur(12px);
+    }
+    .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .chart-desc { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+    .plot-wrap { width: 100%; border-radius: 10px; overflow: hidden; }
+
+    /* ── GREEKS CALCULATOR ── */
+    .greeks-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+    @media (max-width: 960px) { .greeks-layout { grid-template-columns: 1fr; } }
+    .greeks-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .greeks-result-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    }
+    .greek-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+      text-align: center; transition: all .2s;
+    }
+    .greek-box:hover { border-color: var(--accent); background: rgba(124,58,237,0.08); }
+    .greek-name { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 6px; }
+    .greek-symbol { font-size: 22px; font-weight: 300; margin-bottom: 4px; }
+    .greek-val { font-size: 24px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.5px; }
+    .greek-desc { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+    .bs-price-display {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;
+    }
+    .bs-price-box {
+      background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.1));
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 12px; padding: 16px; text-align: center;
+    }
+    .bs-price-box .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .bs-price-box .price { font-size: 28px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      padding: 12px 16px; text-align: left;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background .15s;
+    }
+    tbody tr:hover { background: rgba(124,58,237,0.05); }
+    tbody td { padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    .tag-call { color: var(--green); background: rgba(16,185,129,0.1); padding: 2px 8px; border-radius: 4px; font-family: 'Inter',sans-serif; font-weight: 600; font-size: 11px; }
+    .tag-put { color: #f87171; background: rgba(239,68,68,0.1); padding: 2px 8px; border-radius: 4px; font-family: 'Inter',sans-serif; font-weight: 600; font-size: 11px; }
+    .pos { color: var(--green); } .neg { color: #f87171; }
+    .zscore-bar {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .zscore-pill {
+      padding: 2px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border); text-align: center;
+      padding: 28px 48px; color: var(--muted); font-size: 13px;
+    }
+    footer a { color: #a78bfa; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── UTILITIES ── */
+    .hidden { display: none !important; }
+    .loading {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; padding: 60px 0; color: var(--muted); font-size: 14px;
+    }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .formula-box {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 16px;
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: #a78bfa; line-height: 1.8; margin-top: 12px;
+    }
+
+    .notice {
+      background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.2);
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 13px; color: var(--accent2); margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* tab toggle */
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab-btn {
+      padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: 1px solid transparent;
+      background: transparent; color: var(--muted);
+      transition: all .15s;
+    }
+    .tab-btn.active {
+      background: rgba(124,58,237,0.2); border-color: rgba(124,58,237,0.4);
+      color: #a78bfa;
+    }
+    .tab-btn:hover:not(.active) { background: var(--surface); color: var(--text); }
+
+    .range-wrap { display: flex; align-items: center; gap: 10px; }
+    .range-wrap input[type=range] {
+      flex: 1; accent-color: var(--accent); cursor: pointer; padding: 0;
+    }
+    .range-val {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      min-width: 50px; text-align: right; color: #a78bfa;
+    }
+  </style>
+</head>
+<body>
+<div class="bg-canvas"></div>
+<div class="bg-grid"></div>
+<div class="page-wrap">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    <div>
+      <div class="logo-text">Options Mispricing Engine</div>
+      <div class="logo-sub">Black-Scholes · Volatility Surface · Greeks</div>
+    </div>
+  </div>
+  <div class="header-badge"><span class="dot"></span> Live Engine</div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">⚡ Quantitative Finance · v1.0</div>
+  <h1>Options Mispricing &<br/>Volatility Surface Engine</h1>
+  <p>Detect mispriced call/put options, compute Greeks analytically, and visualize the full 3D implied volatility surface — all powered by Black-Scholes.</p>
+  <div class="hero-btns">
+    <button class="btn btn-primary" onclick="loadSampleData()">🚀 Load Sample Data</button>
+    <button class="btn btn-outline" onclick="document.getElementById('csv-input').click()">📂 Upload CSV</button>
+  </div>
+</div>
+
+<main>
+
+<!-- ════════════════════════════════════════════
+     INPUT SECTION
+════════════════════════════════════════════ -->
+<div class="section-hdr">
+  <div class="icon" style="background:rgba(124,58,237,0.2)">⚙️</div>
+  <div>
+    <h2>Data Input & Configuration</h2>
+    <p>Upload your options CSV or load the built-in sample dataset</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="notice">ℹ️ CSV must include: <strong>date, strike, expiry, option_type, market_price, underlying_price, implied_vol</strong></div>
+  <div class="input-grid">
+    <div class="field">
+      <label>Upload CSV File</label>
+      <input type="file" id="csv-input" accept=".csv" onchange="handleCSV(event)" />
+    </div>
+    <div class="field">
+      <label>Risk-Free Rate (%)</label>
+      <div class="range-wrap">
+        <input type="range" id="rfr-slider" min="0" max="10" step="0.25" value="5" oninput="document.getElementById('rfr-val').textContent=this.value+'%'" />
+        <span class="range-val" id="rfr-val">5%</span>
+      </div>
+    </div>
+  </div>
+  <div class="separator">or</div>
+  <div class="input-actions">
+    <button class="btn btn-primary" onclick="loadSampleData()">📊 Load Sample Data</button>
+    <button class="btn btn-outline" onclick="clearAll()">🗑️ Clear</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     RESULTS — hidden until data loaded
+════════════════════════════════════════════ -->
+<div id="results-section" class="hidden">
+
+  <!-- METRICS -->
+  <div class="section-hdr">
+    <div class="icon" style="background:rgba(16,185,129,0.15)">📊</div>
+    <div>
+      <h2>Portfolio Metrics</h2>
+      <p>Statistical summary of detected mispricing across all options</p>
+    </div>
+  </div>
+  <div class="metrics-grid" id="metrics-grid"></div>
+
+  <!-- DATA TABLE -->
+  <div class="section-hdr" style="margin-top:40px">
+    <div class="icon" style="background:rgba(245,158,11,0.15)">🏆</div>
+    <div>
+      <h2>Top Arbitrage Candidates</h2>
+      <p>Options ranked by absolute Z-score — highest deviation from theoretical price first</p>
+    </div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="table-wrap">
+      <table id="arb-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Strike</th><th>Expiry</th><th>Type</th>
+            <th>Market $</th><th>Theoretical $</th>
+            <th>Mispricing</th><th>% Misprice</th><th>Z-Score</th>
+            <th>Δ Delta</th><th>Γ Gamma</th><th>ν Vega</th><th>Θ Theta</th>
+          </tr>
+        </thead>
+        <tbody id="arb-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="section-hdr" style="margin-top:40px">
+    <div class="icon" style="background:rgba(6,182,212,0.15)">🌊</div>
+    <div>
+      <h2>Volatility Analysis</h2>
+      <p>3D volatility surface and implied volatility smile across strikes</p>
+    </div>
+  </div>
+  <div class="charts-row charts-2col">
+    <div class="chart-card">
+      <div class="chart-title">3D Volatility Surface</div>
+      <div class="chart-desc">Implied volatility across strike × time-to-maturity</div>
+      <div class="plot-wrap" id="vol-surface"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Implied Volatility Smile</div>
+      <div class="chart-desc">Average implied vol per strike — shows skew and smile patterns</div>
+      <div class="plot-wrap" id="vol-smile"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="section-hdr" style="margin-top:40px">
+    <div class="icon" style="background:rgba(239,68,68,0.15)">🔥</div>
+    <div>
+      <h2>Mispricing Analysis</h2>
+      <p>Visual breakdown of pricing errors across the options landscape</p>
+    </div>
+  </div>
+  <div class="charts-row charts-3col">
+    <div class="chart-card">
+      <div class="chart-title">Mispricing Heatmap</div>
+      <div class="chart-desc">Strike vs expiry mispricing magnitude</div>
+      <div class="plot-wrap" id="misprice-heatmap"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Market vs Theoretical Price</div>
+      <div class="chart-desc">Scatter plot with 45° perfect-pricing reference</div>
+      <div class="plot-wrap" id="price-compare"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Mispricing Distribution</div>
+      <div class="chart-desc">Histogram of all pricing errors (market − theoretical)</div>
+      <div class="plot-wrap" id="misprice-hist"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 3 — Greeks profiles -->
+  <div class="section-hdr" style="margin-top:40px">
+    <div class="icon" style="background:rgba(124,58,237,0.2)">🧮</div>
+    <div>
+      <h2>Greeks Profiles</h2>
+      <p>Delta, Gamma, Vega and Theta across strikes in the dataset</p>
+    </div>
+  </div>
+  <div class="charts-row charts-2col">
+    <div class="chart-card">
+      <div class="chart-title">Delta & Gamma vs Strike</div>
+      <div class="chart-desc">First and second order price sensitivity</div>
+      <div class="plot-wrap" id="delta-gamma-chart"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Vega & Theta vs Strike</div>
+      <div class="chart-desc">Volatility sensitivity and time decay per option</div>
+      <div class="plot-wrap" id="vega-theta-chart"></div>
+    </div>
+  </div>
+
+</div><!-- /results -->
+
+<!-- ════════════════════════════════════════════
+     GREEKS CALCULATOR (always visible)
+════════════════════════════════════════════ -->
+<div class="section-hdr" style="margin-top:52px">
+  <div class="icon" style="background:rgba(124,58,237,0.2)">🧮</div>
+  <div>
+    <h2>Interactive Greeks Calculator</h2>
+    <p>Real-time Black-Scholes pricing and Greeks computation — adjust any parameter</p>
+  </div>
+</div>
+<div class="greeks-layout">
+  <!-- Inputs -->
+  <div class="card" style="align-self:start">
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-call" onclick="setOptionType('call')">Call Option</button>
+      <button class="tab-btn" id="tab-put" onclick="setOptionType('put')">Put Option</button>
+    </div>
+    <div class="greeks-inputs">
+      <div class="field">
+        <label>Spot Price (S)</label>
+        <input type="number" id="g-S" value="100" step="1" oninput="calcGreeks()" />
+      </div>
+      <div class="field">
+        <label>Strike Price (K)</label>
+        <input type="number" id="g-K" value="105" step="1" oninput="calcGreeks()" />
+      </div>
+      <div class="field">
+        <label>Time to Maturity (T yrs)</label>
+        <input type="number" id="g-T" value="0.25" step="0.01" oninput="calcGreeks()" />
+      </div>
+      <div class="field">
+        <label>Implied Vol σ (%)</label>
+        <input type="number" id="g-sigma" value="22" step="0.5" oninput="calcGreeks()" />
+      </div>
+      <div class="field">
+        <label>Risk-Free Rate r (%)</label>
+        <input type="number" id="g-r" value="5" step="0.25" oninput="calcGreeks()" />
+      </div>
+      <div class="field">
+        <label>Market Price</label>
+        <input type="number" id="g-market" value="3.50" step="0.01" oninput="calcGreeks()" />
+      </div>
+    </div>
+    <div class="formula-box" id="formula-display"></div>
+  </div>
+  <!-- Results -->
+  <div>
+    <div class="bs-price-display">
+      <div class="bs-price-box">
+        <div class="label">Theoretical Price</div>
+        <div class="price" id="g-theo">—</div>
+      </div>
+      <div class="bs-price-box">
+        <div class="label">Mispricing</div>
+        <div class="price" id="g-misprice" style="font-size:20px">—</div>
+      </div>
+    </div>
+    <div class="greeks-result-grid">
+      <div class="greek-box">
+        <div class="greek-name">Delta</div>
+        <div class="greek-symbol">Δ</div>
+        <div class="greek-val" id="g-delta">—</div>
+        <div class="greek-desc">Rate of price change per $1 move in underlying</div>
+      </div>
+      <div class="greek-box">
+        <div class="greek-name">Gamma</div>
+        <div class="greek-symbol">Γ</div>
+        <div class="greek-val" id="g-gamma">—</div>
+        <div class="greek-desc">Rate of Delta change per $1 move in underlying</div>
+      </div>
+      <div class="greek-box">
+        <div class="greek-name">Vega</div>
+        <div class="greek-symbol">ν</div>
+        <div class="greek-val" id="g-vega">—</div>
+        <div class="greek-desc">Price change per 1% move in implied volatility</div>
+      </div>
+      <div class="greek-box">
+        <div class="greek-name">Theta</div>
+        <div class="greek-symbol">Θ</div>
+        <div class="greek-val" id="g-theta">—</div>
+        <div class="greek-desc">Daily time decay (price lost per calendar day)</div>
+      </div>
+      <div class="greek-box">
+        <div class="greek-name">Rho</div>
+        <div class="greek-symbol">ρ</div>
+        <div class="greek-val" id="g-rho">—</div>
+        <div class="greek-desc">Price change per 1% move in risk-free rate</div>
+      </div>
+      <div class="greek-box">
+        <div class="greek-name">d₁ / d₂</div>
+        <div class="greek-symbol">📐</div>
+        <div class="greek-val" id="g-d1d2" style="font-size:14px;letter-spacing:0">—</div>
+        <div class="greek-desc">Black-Scholes intermediate parameters</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  Built by <a href="https://github.com/alwaysprince05" target="_blank">alwaysprince05</a> ·
+  Options Mispricing &amp; Volatility Surface Engine ·
+  <a href="https://github.com/alwaysprince05/Options-Mispricing-Volatility-Surface-Engine" target="_blank">GitHub</a>
+  · MIT License
+</footer>
+
+</div><!-- /page-wrap -->
+
+<!-- ════════════════════════════════
+     JAVASCRIPT ENGINE
+════════════════════════════════ -->
+<script>
+/* ─── MATH UTILITIES ─── */
+function erf(x) {
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign = x < 0 ? -1 : 1; x = Math.abs(x);
+  const t = 1/(1+p*x);
+  const y = 1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return sign*y;
+}
+const normCDF = x => (1+erf(x/Math.sqrt(2)))/2;
+const normPDF = x => Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI);
+
+function bsd1(S,K,T,sigma,r){ return (Math.log(S/K)+(r+0.5*sigma*sigma)*T)/(sigma*Math.sqrt(T)); }
+function bsd2(S,K,T,sigma,r){ return bsd1(S,K,T,sigma,r)-sigma*Math.sqrt(T); }
+
+function bsCall(S,K,T,sigma,r){
+  if(T<=0) return Math.max(S-K,0);
+  const d1=bsd1(S,K,T,sigma,r), d2=bsd2(S,K,T,sigma,r);
+  return S*normCDF(d1)-K*Math.exp(-r*T)*normCDF(d2);
+}
+function bsPut(S,K,T,sigma,r){
+  if(T<=0) return Math.max(K-S,0);
+  const d1=bsd1(S,K,T,sigma,r), d2=bsd2(S,K,T,sigma,r);
+  return K*Math.exp(-r*T)*normCDF(-d2)-S*normCDF(-d1);
+}
+function bsGreeks(S,K,T,sigma,r,type){
+  if(T<=0) return {delta:0,gamma:0,vega:0,theta:0,rho:0,d1:0,d2:0};
+  const d1=bsd1(S,K,T,sigma,r), d2=bsd2(S,K,T,sigma,r);
+  const pdf1=normPDF(d1);
+  const gamma = pdf1/(S*sigma*Math.sqrt(T));
+  const vega  = S*pdf1*Math.sqrt(T)/100; // per 1%
+  let delta, theta, rho;
+  if(type==='call'){
+    delta = normCDF(d1);
+    theta = (-S*pdf1*sigma/(2*Math.sqrt(T))-r*K*Math.exp(-r*T)*normCDF(d2))/365;
+    rho   = K*T*Math.exp(-r*T)*normCDF(d2)/100;
+  } else {
+    delta = normCDF(d1)-1;
+    theta = (-S*pdf1*sigma/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*normCDF(-d2))/365;
+    rho   = -K*T*Math.exp(-r*T)*normCDF(-d2)/100;
+  }
+  return {delta,gamma,vega,theta,rho,d1,d2};
+}
+
+function zscore(arr){
+  const mean=arr.reduce((a,b)=>a+b,0)/arr.length;
+  const std=Math.sqrt(arr.reduce((a,b)=>a+(b-mean)**2,0)/arr.length);
+  return arr.map(v=>std===0?0:(v-mean)/std);
+}
+
+/* ─── DATE UTILS ─── */
+function daysBetween(d1,d2){ return (new Date(d2)-new Date(d1))/(1000*60*60*24); }
+
+/* ─── PLOTLY DEFAULTS ─── */
+const plotCfg = {responsive:true, displayModeBar:false};
+const darkLayout = extra => Object.assign({
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  font:{color:'#94a3b8',family:'Inter'},
+  margin:{t:20,b:40,l:50,r:20},
+  xaxis:{gridcolor:'rgba(255,255,255,0.05)',zerolinecolor:'rgba(255,255,255,0.08)'},
+  yaxis:{gridcolor:'rgba(255,255,255,0.05)',zerolinecolor:'rgba(255,255,255,0.08)'},
+}, extra||{});
+
+/* ─── STATE ─── */
+let gData = [];
+let optionType = 'call';
+
+/* ─── SAMPLE DATA ─── */
+function loadSampleData(){
+  const raw = `date,strike,expiry,option_type,market_price,underlying_price,implied_vol
+2026-02-27,100,2026-05-27,call,12.5,102,0.22
+2026-02-27,105,2026-05-27,call,9.2,102,0.21
+2026-02-27,110,2026-05-27,call,6.1,102,0.20
+2026-02-27,115,2026-06-27,call,3.8,102,0.21
+2026-02-27,120,2026-06-27,call,2.1,102,0.23
+2026-02-27,95, 2026-08-27,call,16.2,102,0.24
+2026-02-27,100,2026-08-27,call,13.0,102,0.23
+2026-02-27,105,2026-08-27,call,10.5,102,0.22
+2026-02-27,100,2026-05-27,put,10.3,102,0.22
+2026-02-27,105,2026-05-27,put,12.0,102,0.21
+2026-02-27,110,2026-05-27,put,15.5,102,0.20
+2026-02-27,115,2026-06-27,put,14.0,102,0.21
+2026-02-27,120,2026-06-27,put,18.9,102,0.23
+2026-02-27,95, 2026-08-27,put,6.5,102,0.24
+2026-02-27,100,2026-08-27,put,9.8,102,0.23
+2026-02-27,105,2026-08-27,put,12.2,102,0.22`;
+  processCSVText(raw);
+}
+
+function handleCSV(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => processCSVText(ev.target.result);
+  reader.readAsText(file);
+}
+
+function processCSVText(text){
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h=>h.trim().toLowerCase());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const vals = lines[i].split(',').map(v=>v.trim());
+    if(vals.length < headers.length) continue;
+    const row = {};
+    headers.forEach((h,idx)=>row[h]=vals[idx]);
+    const date   = row['date'];
+    const expiry = row['expiry'];
+    const T      = Math.max(daysBetween(date,expiry)/365, 0.001);
+    rows.push({
+      date,
+      strike:+row['strike'],
+      expiry,
+      option_type: row['option_type'].toLowerCase(),
+      market_price: +row['market_price'],
+      underlying_price: +row['underlying_price'],
+      implied_vol: +row['implied_vol'],
+      time_to_maturity: T
+    });
+  }
+  if(!rows.length){ alert('No valid rows found in CSV.'); return; }
+  gData = enrichData(rows);
+  renderAll();
+}
+
+function enrichData(rows){
+  const rfr = parseFloat(document.getElementById('rfr-slider').value)/100;
+  rows.forEach(r=>{
+    const S=r.underlying_price, K=r.strike, T=r.time_to_maturity, sig=r.implied_vol;
+    r.theoretical_price = r.option_type==='call'? bsCall(S,K,T,sig,rfr): bsPut(S,K,T,sig,rfr);
+    r.mispricing     = r.market_price - r.theoretical_price;
+    r.pct_mispricing = r.theoretical_price!==0? r.mispricing/r.theoretical_price*100: 0;
+    const g = bsGreeks(S,K,T,sig,rfr,r.option_type);
+    r.delta=g.delta; r.gamma=g.gamma; r.vega=g.vega; r.theta=g.theta; r.rho=g.rho;
+  });
+  const mispricings = rows.map(r=>r.mispricing);
+  const zs = zscore(mispricings);
+  rows.forEach((r,i)=>{ r.zscore=zs[i]; r.abs_zscore=Math.abs(zs[i]); });
+  rows.sort((a,b)=>b.abs_zscore-a.abs_zscore);
+  return rows;
+}
+
+function fmt(n,dec=2){ return n==null||isNaN(n)?'—':n.toFixed(dec); }
+function fmtSign(n,dec=2){ if(n==null||isNaN(n)) return '—'; return (n>=0?'+':'')+n.toFixed(dec); }
+
+/* ─── RENDER ALL ─── */
+function renderAll(){
+  document.getElementById('results-section').classList.remove('hidden');
+  renderMetrics();
+  renderTable();
+  renderVolSurface();
+  renderVolSmile();
+  renderHeatmap();
+  renderPriceCompare();
+  renderMispriceHist();
+  renderGreeksCharts();
+  document.getElementById('results-section').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ─── METRICS ─── */
+function renderMetrics(){
+  const d = gData;
+  const meanAbs = d.reduce((a,r)=>a+Math.abs(r.mispricing),0)/d.length;
+  const maxDev  = Math.max(...d.map(r=>Math.abs(r.mispricing)));
+  const arbScore= d.filter(r=>Math.abs(r.zscore)>2).length;
+  const pctOver = d.filter(r=>r.mispricing>0).length;
+  const pctUnder= d.filter(r=>r.mispricing<0).length;
+  const avgPct  = d.reduce((a,r)=>a+Math.abs(r.pct_mispricing),0)/d.length;
+  const maxZ    = Math.max(...d.map(r=>Math.abs(r.zscore)));
+
+  const metrics = [
+    {label:'Total Options',val:d.length,sub:`${pctOver} overpriced · ${pctUnder} underpriced`,badge:'',glow:'rgba(124,58,237,0.4)'},
+    {label:'Mean Abs Mispricing',val:'$'+fmt(meanAbs),sub:'Average price deviation',badge:'warn',glow:'rgba(245,158,11,0.3)'},
+    {label:'Max Deviation',val:'$'+fmt(maxDev),sub:'Largest single mispricing',badge:'down',glow:'rgba(239,68,68,0.3)'},
+    {label:'Arbitrage Score',val:arbScore,sub:'Options with |Z| > 2σ',badge:'warn',glow:'rgba(245,158,11,0.3)'},
+    {label:'Avg % Mispricing',val:fmt(avgPct,1)+'%',sub:'Mean percentage error',badge:'',glow:'rgba(6,182,212,0.3)'},
+    {label:'Max |Z-Score|',val:fmt(maxZ,2)+'σ',sub:'Peak statistical deviation',badge:'down',glow:'rgba(239,68,68,0.25)'},
+  ];
+  const grid = document.getElementById('metrics-grid');
+  grid.innerHTML = metrics.map(m=>`
+    <div class="metric-card">
+      <div class="glow" style="background:${m.glow}"></div>
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-value">${m.val}</div>
+      <div class="metric-sub">${m.sub}</div>
+      ${m.badge==='warn'?'<div class="metric-badge badge-warn">⚠ Attention</div>':
+        m.badge==='down'?'<div class="metric-badge badge-down">⬆ High</div>':''}
+    </div>`).join('');
+}
+
+/* ─── TABLE ─── */
+function renderTable(){
+  const top = gData.slice(0,10);
+  const tb = document.getElementById('arb-tbody');
+  tb.innerHTML = top.map(r=>{
+    const typeTag = r.option_type==='call'?`<span class="tag-call">CALL</span>`:`<span class="tag-put">PUT</span>`;
+    const mc = r.mispricing>=0?'pos':'neg';
+    const zc = Math.abs(r.zscore)>2?'neg':Math.abs(r.zscore)>1?'':'';
+    const zpill = Math.abs(r.zscore)>2?
+      `<span class="zscore-pill" style="background:rgba(239,68,68,0.15);color:#f87171">${fmt(r.zscore)}σ</span>`:
+      `<span class="zscore-pill" style="background:rgba(16,185,129,0.1);color:#34d399">${fmt(r.zscore)}σ</span>`;
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${r.strike}</td>
+      <td>${r.expiry}</td>
+      <td>${typeTag}</td>
+      <td>$${fmt(r.market_price)}</td>
+      <td>$${fmt(r.theoretical_price)}</td>
+      <td class="${mc}">${fmtSign(r.mispricing)}</td>
+      <td class="${mc}">${fmtSign(r.pct_mispricing,1)}%</td>
+      <td><div class="zscore-bar">${zpill}</div></td>
+      <td>${fmt(r.delta,4)}</td>
+      <td>${fmt(r.gamma,4)}</td>
+      <td>${fmt(r.vega,4)}</td>
+      <td>${fmt(r.theta,4)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── 3D VOL SURFACE ─── */
+function renderVolSurface(){
+  const strikes = [...new Set(gData.map(r=>r.strike))].sort((a,b)=>a-b);
+  const mats    = [...new Set(gData.map(r=>+r.time_to_maturity.toFixed(3)))].sort((a,b)=>a-b);
+  const Z = strikes.map(K=> mats.map(T=>{
+    const match = gData.find(r=>r.strike===K && Math.abs(r.time_to_maturity-T)<0.01);
+    return match? match.implied_vol*100: null;
+  }));
+  const trace = {
+    type:'surface', x:mats, y:strikes, z:Z,
+    colorscale:[ [0,'#06b6d4'],[0.5,'#7c3aed'],[1,'#f59e0b'] ],
+    contours:{ z:{show:true, usecolormap:true, highlightcolor:'#fff', project:{z:true}} },
+    opacity:0.9
+  };
+  const layout = darkLayout({
+    scene:{
+      xaxis:{title:'Time to Maturity (yrs)', gridcolor:'rgba(255,255,255,0.08)', color:'#64748b'},
+      yaxis:{title:'Strike', gridcolor:'rgba(255,255,255,0.08)', color:'#64748b'},
+      zaxis:{title:'Implied Vol (%)', gridcolor:'rgba(255,255,255,0.08)', color:'#64748b'},
+      bgcolor:'transparent',
+      camera:{eye:{x:1.5,y:-1.5,z:0.8}}
+    },
+    margin:{t:10,b:10,l:10,r:10}
+  });
+  Plotly.newPlot('vol-surface',[trace],layout,plotCfg);
+}
+
+/* ─── VOL SMILE ─── */
+function renderVolSmile(){
+  const byStrike = {};
+  gData.forEach(r=>{ if(!byStrike[r.strike]) byStrike[r.strike]=[]; byStrike[r.strike].push(r.implied_vol*100); });
+  const strikes = Object.keys(byStrike).map(Number).sort((a,b)=>a-b);
+  const vols = strikes.map(k=>{const vs=byStrike[k]; return vs.reduce((a,b)=>a+b,0)/vs.length;});
+  const trace = {
+    x:strikes, y:vols, type:'scatter', mode:'lines+markers',
+    line:{color:'#7c3aed',width:2.5},
+    marker:{color:'#a78bfa',size:8,line:{color:'#fff',width:1.5}},
+    fill:'tozeroy', fillcolor:'rgba(124,58,237,0.08)',
+    name:'Implied Vol'
+  };
+  const layout = darkLayout({
+    xaxis:{title:'Strike', ...{}},
+    yaxis:{title:'Implied Volatility (%)'}
+  });
+  Plotly.newPlot('vol-smile',[trace],layout,plotCfg);
+}
+
+/* ─── HEATMAP ─── */
+function renderHeatmap(){
+  const strikes = [...new Set(gData.map(r=>r.strike))].sort((a,b)=>a-b);
+  const expiries = [...new Set(gData.map(r=>r.expiry))].sort();
+  const Z = strikes.map(K=> expiries.map(E=>{
+    const match = gData.find(r=>r.strike===K && r.expiry===E);
+    return match? match.mispricing: 0;
+  }));
+  const trace = {
+    type:'heatmap', x:expiries, y:strikes, z:Z,
+    colorscale:[ [0,'#ef4444'],[0.5,'#1e293b'],[1,'#10b981'] ],
+    hoverongaps:false
+  };
+  Plotly.newPlot('misprice-heatmap',[trace], darkLayout({
+    xaxis:{title:'Expiry'},yaxis:{title:'Strike'}
+  }), plotCfg);
+}
+
+/* ─── PRICE COMPARE ─── */
+function renderPriceCompare(){
+  const calls = gData.filter(r=>r.option_type==='call');
+  const puts  = gData.filter(r=>r.option_type==='put');
+  const allTheo = gData.map(r=>r.theoretical_price);
+  const mn = Math.min(...allTheo), mx = Math.max(...allTheo);
+
+  const traceCall = {
+    x:calls.map(r=>r.theoretical_price), y:calls.map(r=>r.market_price),
+    mode:'markers', name:'Call',
+    marker:{color:'#10b981',size:9,opacity:0.85,line:{color:'#fff',width:1}},
+    text:calls.map(r=>`Strike: ${r.strike}<br>Market: $${fmt(r.market_price)}<br>Theo: $${fmt(r.theoretical_price)}`),
+    hoverinfo:'text'
+  };
+  const tracePut = {
+    x:puts.map(r=>r.theoretical_price), y:puts.map(r=>r.market_price),
+    mode:'markers', name:'Put',
+    marker:{color:'#f87171',size:9,opacity:0.85,line:{color:'#fff',width:1}},
+    text:puts.map(r=>`Strike: ${r.strike}<br>Market: $${fmt(r.market_price)}<br>Theo: $${fmt(r.theoretical_price)}`),
+    hoverinfo:'text'
+  };
+  const refLine = {
+    x:[mn,mx], y:[mn,mx], mode:'lines', name:'Perfect Pricing',
+    line:{color:'rgba(255,255,255,0.3)',dash:'dash',width:1.5}
+  };
+  Plotly.newPlot('price-compare',[traceCall,tracePut,refLine], darkLayout({
+    xaxis:{title:'Theoretical Price ($)'},
+    yaxis:{title:'Market Price ($)'},
+    legend:{orientation:'h',y:-0.18}
+  }), plotCfg);
+}
+
+/* ─── MISPRICING HISTOGRAM ─── */
+function renderMispriceHist(){
+  const vals = gData.map(r=>r.mispricing);
+  const trace = {
+    x:vals, type:'histogram', nbinsx:15,
+    marker:{color:'rgba(124,58,237,0.7)',line:{color:'rgba(167,139,250,0.5)',width:1}},
+    name:'Mispricing'
+  };
+  Plotly.newPlot('misprice-hist',[trace], darkLayout({
+    xaxis:{title:'Mispricing ($)'},
+    yaxis:{title:'Count'},
+    shapes:[{type:'line',x0:0,x1:0,y0:0,y1:1,yref:'paper',
+      line:{color:'rgba(255,255,255,0.3)',dash:'dash',width:1.5}}]
+  }), plotCfg);
+}
+
+/* ─── GREEKS CHARTS ─── */
+function renderGreeksCharts(){
+  const strikes = [...new Set(gData.map(r=>r.strike))].sort((a,b)=>a-b);
+  const avgGreek = (greek, type) => strikes.map(K=>{
+    const match = gData.filter(r=>r.strike===K && (!type||r.option_type===type));
+    if(!match.length) return 0;
+    return match.reduce((a,r)=>a+r[greek],0)/match.length;
+  });
+
+  // Delta + Gamma
+  const tDelta = {x:strikes,y:avgGreek('delta'),mode:'lines+markers',name:'Delta',
+    line:{color:'#7c3aed',width:2}, marker:{color:'#a78bfa',size:7}};
+  const tGamma = {x:strikes,y:avgGreek('gamma'),mode:'lines+markers',name:'Gamma',
+    yaxis:'y2',line:{color:'#06b6d4',width:2,dash:'dot'}, marker:{color:'#67e8f9',size:7}};
+  Plotly.newPlot('delta-gamma-chart',[tDelta,tGamma], darkLayout({
+    xaxis:{title:'Strike'},
+    yaxis:{title:'Delta',color:'#a78bfa'},
+    yaxis2:{title:'Gamma',overlaying:'y',side:'right',color:'#06b6d4'},
+    legend:{orientation:'h',y:-0.18}
+  }), plotCfg);
+
+  // Vega + Theta
+  const tVega  = {x:strikes,y:avgGreek('vega'), mode:'lines+markers',name:'Vega',
+    line:{color:'#f59e0b',width:2}, marker:{color:'#fcd34d',size:7}};
+  const tTheta = {x:strikes,y:avgGreek('theta'),mode:'lines+markers',name:'Theta',
+    yaxis:'y2',line:{color:'#f87171',width:2,dash:'dot'}, marker:{color:'#fca5a5',size:7}};
+  Plotly.newPlot('vega-theta-chart',[tVega,tTheta], darkLayout({
+    xaxis:{title:'Strike'},
+    yaxis:{title:'Vega',color:'#f59e0b'},
+    yaxis2:{title:'Theta (daily)',overlaying:'y',side:'right',color:'#f87171'},
+    legend:{orientation:'h',y:-0.18}
+  }), plotCfg);
+}
+
+/* ─── GREEKS CALCULATOR ─── */
+function setOptionType(t){
+  optionType = t;
+  document.getElementById('tab-call').classList.toggle('active', t==='call');
+  document.getElementById('tab-put').classList.toggle('active',  t==='put');
+  calcGreeks();
+}
+
+function calcGreeks(){
+  const S     = parseFloat(document.getElementById('g-S').value)||0;
+  const K     = parseFloat(document.getElementById('g-K').value)||0;
+  const T     = parseFloat(document.getElementById('g-T').value)||0;
+  const sigma = (parseFloat(document.getElementById('g-sigma').value)||0)/100;
+  const r     = (parseFloat(document.getElementById('g-r').value)||0)/100;
+  const mkt   = parseFloat(document.getElementById('g-market').value)||0;
+
+  if(S<=0||K<=0||T<=0||sigma<=0){ return; }
+
+  const theo  = optionType==='call'? bsCall(S,K,T,sigma,r): bsPut(S,K,T,sigma,r);
+  const g     = bsGreeks(S,K,T,sigma,r,optionType);
+  const misprice = mkt - theo;
+
+  document.getElementById('g-theo').textContent = '$'+fmt(theo);
+  const mpEl = document.getElementById('g-misprice');
+  mpEl.textContent = (misprice>=0?'+':'')+'$'+fmt(misprice)+' / '+(misprice>=0?'+':'')+fmt(mkt!==0?(misprice/mkt*100):0,1)+'%';
+  mpEl.style.color = misprice>0.05?'#f87171': misprice<-0.05?'#34d399': '#64748b';
+
+  document.getElementById('g-delta').textContent = fmt(g.delta,4);
+  document.getElementById('g-gamma').textContent = fmt(g.gamma,5);
+  document.getElementById('g-vega').textContent  = fmt(g.vega,4);
+  document.getElementById('g-theta').textContent = fmt(g.theta,4);
+  document.getElementById('g-rho').textContent   = fmt(g.rho,4);
+  document.getElementById('g-d1d2').textContent  = `d₁=${fmt(g.d1,4)} / d₂=${fmt(g.d2,4)}`;
+
+  const typeStr = optionType==='call'?'C':'P';
+  document.getElementById('formula-display').innerHTML =
+    `d₁ = (ln(${S}/${K}) + (${fmt(r*100,2)}% + ½·${fmt(sigma*100,2)}%²) × ${T}) / (${fmt(sigma*100,2)}% × √${T})<br>` +
+    `   = <strong style="color:#a78bfa">${fmt(g.d1,4)}</strong><br>` +
+    `d₂ = d₁ − σ√T = <strong style="color:#a78bfa">${fmt(g.d2,4)}</strong><br>` +
+    `${typeStr} = <strong style="color:#06b6d4">$${fmt(theo)}</strong>`;
+}
+
+/* ─── CLEAR ─── */
+function clearAll(){
+  gData = [];
+  document.getElementById('results-section').classList.add('hidden');
+  document.getElementById('csv-input').value='';
+}
+
+/* ─── INIT ─── */
+calcGreeks();
+</script>
+</body>
+</html>

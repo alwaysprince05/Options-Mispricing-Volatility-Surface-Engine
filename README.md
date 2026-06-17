@@ -27,6 +27,18 @@ This engine performs end-to-end quantitative analysis of options markets — fro
 
 ---
 
+## Dashboard
+
+<div align="center">
+
+![Dashboard](dashboard.png)
+
+*Interactive visualizations: volatility surface, mispricing heatmap, and arbitrage opportunities*
+
+</div>
+
+---
+
 ## Features
 
 | Feature | Description |
