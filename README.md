@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Finance](https://img.shields.io/badge/Domain-Quantitative%20Finance-orange?style=for-the-badge)
+![Domain](https://img.shields.io/badge/Domain-Quantitative%20Finance-orange?style=for-the-badge)
 ![Model](https://img.shields.io/badge/Model-Black--Scholes-purple?style=for-the-badge)
 
 **A modular, production-grade Python engine for detecting options mispricing, computing Greeks, and visualizing 3D volatility surfaces using the Black-Scholes model.**
